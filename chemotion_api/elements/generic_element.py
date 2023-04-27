@@ -6,7 +6,7 @@ from chemotion_api.utils import get_default_session_header
 
 
 
-class Reaction(AbstractElement):
+class GenericElement(AbstractElement):
 
     def __init__(self, json_data, generic_segments: GenericSegments, host_url, session):
         super().__init__(json_data, generic_segments, host_url, session)
@@ -18,14 +18,4 @@ class Reaction(AbstractElement):
         return res.text
 
     def _parse_properties(self) -> dict:
-        return {
-            'name': self.json_data.get('name'),
-            'description': self.json_data.get('description'),
-            'boiling_point': self.json_data.get('boiling_point'),
-            'melting_point': self.json_data.get('melting_point'),
-            'amount_value_in_g': self.json_data.get('real_amount_value'),
-            'stereo': self.json_data.get('stereo'),
-            'location': self.json_data.get('location'),
-            'purity': self.json_data.get('purity'),
-            'molarity_in_{}'.format(self.json_data.get('molarity_unit')): self.json_data.get('real_amount_value'),
-        }
+        return {}

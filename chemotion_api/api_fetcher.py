@@ -87,12 +87,3 @@ class ApiFetcher:
 
         return None
 
-    def _filter_collection(self, root):
-        return_list = []
-        if root['label'] == self.ELN_COLLECTION_NAME:
-            return_list.append(root)
-        if root['children'] is not None:
-            for col in root['children']:
-                return_list += self._filter_collection(col)
-
-        return return_list

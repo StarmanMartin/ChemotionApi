@@ -1,14 +1,31 @@
 from chemotion_api.utils import get_default_session_header
+import uuid
 
+class GenericSegments:
+    def __init__(self,host_url, session):
+        self._host_url = host_url
+        self._session = session
+        self._segments = None
 
-class GenericElements:
+    @property
+    def all_classes(self):
+        if self._segments is None:
+            get_url = "{}/api/v1/segments/klasses.json".format(self._host_url)
+            res = self._session.get(get_url, headers=get_default_session_header())
+            if res.status_code != 200:
+                raise ConnectionError('Counld not get the genetic segments')
+            self._segments = res.json().get('klass', [])
+
+        return self._segments
+
     @classmethod
-    def get_all_classes(cls, host_url, session):
-        get_url = "{}/api/v1/generic_elements/klasses.json".format(host_url)
-        res = session.get(get_url, headers=get_default_session_header())
-        if res.status_code != 200:
-            raise ConnectionError('Counld not get the genetic elements')
-        all_classes = {}
-        for x in res.json()['klass']:
-            all_classes[x['name']] = {'label': x['label'], 'name': x['name'], 'is_generic': x['is_generic']}
-        return all_classes
+    def new_session(cls, base_segment: dict) -> dict:
+        a = {
+            'segment_klass_id': base_segment['id'],
+            'klassType': 'Segment',
+            'is_new': True,
+            'id': uuid.uuid4().__str__()
+        }
+        a['properties'] = base_segment.get('properties_release', {}).copy()
+
+        return a
