@@ -1,8 +1,0 @@
-{
-  "ELN_URL": "http://localhost:3000/",
-  "ELN_USER": "XXX",
-  "ELN_PASS": "*******",
-  "ELN_ELEMENT": "XXX",
-  "ELN_ELEMENT_SELECT_FIELD": "XXXX",
-  "ELN_COLLECTION_NAME": "XXXX"
-}
