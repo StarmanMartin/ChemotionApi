@@ -1,5 +1,4 @@
 /config.json
-/ElnFetcher.log
 .idea/
 
 __pycache__/
@@ -8,9 +7,6 @@ dist/
 
 pyproject.toml
 
-sample_c.json
-
-sample_o.json
-
 ElnDataFatcher.iml
 /old_as_sample/
+/ChemotionAPI.log

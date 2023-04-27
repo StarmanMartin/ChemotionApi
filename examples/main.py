@@ -3,18 +3,16 @@ import logging
 import random
 
 from chemotion_api import Instance
-from utils import load_config, CONFIG
-
-
-
+from examples.utils import load_config, CONFIG
 
 
 if __name__ == '__main__':
-    logging.basicConfig(format='%(levelname)s->%(message)s',  filename='ElnFetcher.log', encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(format='%(levelname)s->%(message)s',  filename='ChemotionAPI.log', encoding='utf-8', level=logging.DEBUG)
     logging.getLogger().addHandler(logging.StreamHandler())
 
+    load_config()
 
-    instance = Instance('http://193.196.38.77/').test_connection().login('tet', '12342234')
+    instance = Instance(CONFIG.get('ELN_URL')).test_connection().login(CONFIG.get('ELN_USER'), CONFIG.get('ELN_PASS'))
     user = instance.get_user()
 
 
