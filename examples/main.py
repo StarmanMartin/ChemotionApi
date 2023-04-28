@@ -2,6 +2,8 @@ import json
 import logging
 import random
 
+import PIL
+
 from chemotion_api import Instance
 from examples.utils import load_config, CONFIG
 
@@ -19,14 +21,27 @@ if __name__ == '__main__':
     col = instance.get_all_collections()
     samples = col.get_collection('/Martins').get_samples()
     sample = col.get_collection('/Martins').get_sample(2812)
-    sample.segments['Properties']['boiling_point'] = 55
-    sample.segments['Properties']['name'] = "Test Sample API"
-    with open('sample_o.json', 'w+') as f:
-        f.write(json.dumps(sample.json_data))
+    sample.properties['boiling_point_lowerbound'] = '55.5'
+    sample.properties['boiling_point_upperbound'] = '65.5'
+    sample.properties['name'] = "Test Sample API"
+
+    with open('Sample_Data/img.png', 'wb+') as f:
+        img = sample.segments['Analyses'][0].preview_image()
+        f.write(img)
+
+    sample.segments.get('Object')['Sample history']['Sample label'] = "Test Label"
+    try:
+        sample.segments.get('Assay')
+    except:
+        print('OK')
+
 
     sample.segments['Enzyme methods data']['Additional information on the enzyme']['Tissue'] = 'Test'
     sample.segments['Enzyme methods data']['Assay conditions']['Buffer'].append(sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][0].copy())
     sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][-1]['Concentration']['value'] = int(random.random() * 500)
+    sample.analyses[0].datasets[0]['General information']['title'] = 'Hallo Test Title'
+    sample.analyses[0].datasets[0].write_data_set_xlsx("Sample_Data")
+    sample.analyses[0].datasets[0].write_zip("Sample_Data")
     sample.save()
 
     col.get_collection('/External Collections/SPP Test Reactions/Test Collection Manuel Tsotsalas')

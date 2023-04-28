@@ -82,7 +82,7 @@ def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str 
     if type(sub_fields) is list and len(sub_fields) > 0:
         if field_obj.get('type') == 'input-group':
             for (idx, val) in enumerate(values):
-                clean_generic_field(sub_fields[idx], field_obj.get(''))
+                clean_generic_field(sub_fields[idx], val)
 
         elif field_obj.get('type') == 'table':
             value_list = field_obj.get('sub_values', [])
