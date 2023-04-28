@@ -5,7 +5,7 @@ from chemotion_api.collection import RootCollection
 from chemotion_api.generic_elements import GenericElements
 from chemotion_api.user import User
 from chemotion_api.utils import get_default_session_header
-
+from  requests.exceptions import ConnectionError
 
 TInstance = TypeVar("TInstance", bound="Instance")
 class Instance:
@@ -30,8 +30,10 @@ class Instance:
                            headers=headers,
                            data=payload)
 
-        if res.status_code == 200:
+        if res.status_code == 200 and not res.url.endswith('sign_in'):
             return self
+        elif res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         raise PermissionError('Could not login!!')
 
     def get_user(self) -> User:

@@ -1,7 +1,7 @@
 import json
 
 import requests
-
+from requests.exceptions import ConnectionError
 from chemotion_api.utils import get_default_session_header
 
 
@@ -37,5 +37,9 @@ class User:
 
         res = self._session.get(user_url,
                                 headers=get_default_session_header())
+        if res.status_code == 401:
+            raise PermissionError('Not allowed to fetch user (Login first)')
+        elif res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         for (key, val) in json.loads(res.content)['user'].items():
             setattr(self, key, val)
