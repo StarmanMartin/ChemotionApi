@@ -22,4 +22,4 @@ def test_wrong_instance_login(config_login):
 
 def test_get_user(config_login):
     user = Instance(config_login.get('ELN_URL')).test_connection().login(config_login.get('ELN_USER'), config_login.get('ELN_PASS')).get_user()
-    assert user.email == 'test.t@kit.edu'
+    assert user.email == 'api_test@kit.edu'

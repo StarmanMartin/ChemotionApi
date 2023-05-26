@@ -13,7 +13,7 @@ class GenericSegments:
             get_url = "{}/api/v1/segments/klasses.json".format(self._host_url)
             res = self._session.get(get_url, headers=get_default_session_header())
             if res.status_code != 200:
-                raise ConnectionError('Counld not get the genetic segments')
+                raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
             self._segments = res.json().get('klass', [])
 
         return self._segments

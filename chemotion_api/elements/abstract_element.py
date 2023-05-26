@@ -1,6 +1,7 @@
 import json
 import os.path
 import re
+import uuid
 
 import requests
 
@@ -55,8 +56,9 @@ class Dataset(dict):
 
     def to_json(self):
         ds = self._json_data.get('dataset')
-        clean_generic_object_json(ds, self, self._mapping)
-        ds['changed'] = True
+        if ds is not None:
+            clean_generic_object_json(ds, self, self._mapping)
+            ds['changed'] = True
 
 class Analyses(dict):
     def __init__(self, data, host_url: str, session: requests.Session):
@@ -114,27 +116,50 @@ class Segment(dict):
 
 
 class AbstractElement:
-    def __init__(self, json_data, generic_segments: GenericSegments, host_url: str, session: requests.Session):
-        self.generic_segments = generic_segments
+    element_type = None
+    def __init__(self, generic_segments: GenericSegments, host_url: str, session: requests.Session, json_data: dict = None, id: int = None, element_type: str = None):
+        self._generic_segments = generic_segments
         self._host_url = host_url
         self._session = session
+        if json_data is not None:
+            self._set_json_data(json_data)
+        elif id is not None and element_type is not None:
+            self.id = id
+            self.element_type = element_type
+            self.load()
+        else:
+            raise ValueError("Either 'json_data' or 'id' and 'element_type' must be provided during initialization")
+    def load(self):
+
+        payload = {}
+        res = self._session.get("{}/{}.json".format(self.__class__.get_url(self.element_type, self._host_url), self.id),
+                                headers=get_default_session_header(),
+                                data=payload)
+        if res.status_code != 200:
+            raise ConnectionError("{} -> {}".format(res.status_code, res.text))
+        json_data = res.json()[self.get_response_key(self.element_type)]
+        self._set_json_data(json_data)
+
+
+    def _set_json_data(self, json_data):
         self.json_data = json_data
 
         self.short_label = self.json_data.get('short_label')
         self.id = json_data.get('id')
+        self.element_type = json_data.get('type')
 
         self.properties: dict = self._parse_properties()
         self.analyses: list[dict] = self._parse_analyses()
         segment_temp = self._parse_segments()
         self._segments_mapping = segment_temp.get('obj_mapping')
-        self.segments = Segment(self.generic_segments,
+        self.segments = Segment(self._generic_segments,
                                 json_data.get('type'),
-                                self.on_add_segment,
+                                self._on_add_segment,
                                 segment_temp.get('values'))
         add_to_dict(self.segments, 'Properties', self.properties)
         add_to_dict(self.segments, 'Analyses', self.analyses)
 
-    def on_add_segment(self, key: str, segment_data: dict) -> dict:
+    def _on_add_segment(self, key: str, segment_data: dict) -> dict:
         temp_segment = parse_generic_object_json(segment_data)
         self._segments_mapping[key] = temp_segment.get('obj_mapping')
         self.json_data.get('segments', []).append(segment_data)
@@ -142,9 +167,17 @@ class AbstractElement:
 
     def save(self):
         data = self.clean_data()
-        res = self._session.put(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
-        if res.status_code != 200:
+        is_created = False
+        if self.id is None:
+            data['id'] = uuid.uuid4().__str__()
+            res = self._session.post(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
+            is_created = True
+        else:
+            res = self._session.put(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
+        if res.status_code != 200 and res.status_code != 201:
             raise ConnectionError('{} -> '.format(res.status_code, res.text))
+        if is_created:
+            self._set_json_data(res.json()[self.element_type])
 
     def clean_data(self):
         self._clean_segments_data()
@@ -153,7 +186,9 @@ class AbstractElement:
         return self.json_data
 
     def save_url(self):
-        return "{}/api/v1/{}s/{}".format(self._host_url, self.json_data.get('type'), self.id)
+        if self.id is not None:
+            return "{}/api/v1/{}s/{}".format(self._host_url, self.json_data.get('type'), self.id)
+        return "{}/api/v1/{}s".format(self._host_url, self.json_data.get('type'))
 
     def _parse_properties(self) -> dict:
         raise NotImplemented
@@ -163,12 +198,17 @@ class AbstractElement:
 
     def _parse_analyses(self) -> list:
         analyses_list = []
-        for analyses in self.json_data.get('container', {}).get('children', [{}])[0].get('children', []):
-            analyses_list.append(Analyses(analyses, self._host_url, self._session))
+        container = self.json_data.get('container')
+        if container is not None:
+            for analyses in container.get('children', [{}])[0].get('children', []):
+                analyses_list.append(Analyses(analyses, self._host_url, self._session))
         return analyses_list
 
     def _clean_analyses_data(self):
-        res_list = self.json_data.get('container', {}).get('children', [{}])[0].get('children', [])
+        container = self.json_data.get('container')
+        if container is None:
+            return []
+        res_list = container.get('children', [{}])[0].get('children', [])
         for (idx, analyses) in enumerate(res_list):
             analyses_obj: list[Analyses] = [item for (index, item) in enumerate(self.analyses) if
                                             item.id == analyses.get('id')]
@@ -184,7 +224,7 @@ class AbstractElement:
         results: dict[str: dict] = {}
         results_mapping: dict[str: dict] = {}
         for segment in self.json_data.get('segments', []):
-            a = [x for x in self.generic_segments.all_classes if x['id'] == segment['segment_klass_id']]
+            a = [x for x in self._generic_segments.all_classes if x['id'] == segment['segment_klass_id']]
             temp_segment = parse_generic_object_json(segment)
             key = add_to_dict(results, a[0].get('label', 'no_label'), temp_segment.get('values'))
             results_mapping[key] = temp_segment.get('obj_mapping')
@@ -195,3 +235,29 @@ class AbstractElement:
         for (seg_key, segment_mapping) in self._segments_mapping.items():
             list_idx = next(i for (i, x) in enumerate(res_list) if x.get('id') == segment_mapping['__id'])
             clean_generic_object_json(res_list[list_idx], self.segments[seg_key], segment_mapping)
+
+
+
+    @classmethod
+    def get_response_key(cls, name):
+        if name == 'sample':
+            return 'sample'
+        elif name == 'reaction':
+            return 'reaction'
+        elif name == 'wellplate':
+            return 'wellplate'
+        elif name == 'research_plan':
+            return 'research_plan'
+        return 'generic_element'
+
+    @classmethod
+    def get_url(cls, name, host_url):
+        if name == 'sample':
+            return '%s/api/v1/samples' % host_url
+        elif name == 'reaction':
+            return '%s/api/v1/reactions' % host_url
+        elif name == 'wellplate':
+            return '%s/api/v1/wellplates' % host_url
+        elif name == 'research_plan':
+            return '%s/api/v1/research_plans' % host_url
+        return '%s/api/v1/generic_elements' % host_url

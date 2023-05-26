@@ -1,9 +1,11 @@
 import json
 import os
-from typing import Iterable, TypeVar
+from random import random
+from typing import TypeVar
 
 import requests
 
+from chemotion_api.element_manager import ElementManager
 from chemotion_api.elements import ElementSet, AbstractElement
 from chemotion_api.utils import get_default_session_header, get_json_session_header
 
@@ -17,6 +19,12 @@ class AbstractCollection:
     _parent: TAbstractCollection = None
     id: int = None
 
+    @classmethod
+    def prepare_label(cls, label: str, case_insensitive):
+        if case_insensitive:
+            return label.lower()
+        return label
+
     def __init__(self):
         self.children = []
 
@@ -26,14 +34,19 @@ class AbstractCollection:
     def __iter__(self):
         yield ('collections', self.children)
 
-    def set_children(self, children: list[dict]):
+    def _set_children(self, children: list[dict]):
         if children is None:
             self.children = []
             return
-
+        ids = []
         for child in children:
-            self.children.append(Collection(child))
-
+            ids.append(child['id'])
+            child_obj: TAbstractCollection|None = next((x for x in self.children if x.id == child['id']), None)
+            if child_obj is None:
+                self.children.append(Collection(child))
+            else:
+                child_obj.set_json(child)
+        self.children = [child_obj for child_obj in self.children if child_obj.id in ids]
         self._update_relations()
 
     def _update_relations(self):
@@ -74,30 +87,80 @@ class AbstractCollection:
             col = col._parent
         return col
 
-    def get_samples(self) -> ElementSet:
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection | None:
+        abs_path = self.get_path()
+        if col_path.__class__ is not str:
+            col_path = '/'.join(col_path)
+        return self.get_root().get_collection(os.path.join(abs_path, col_path), case_insensitive)
+
+    def get_or_create_collection(self, col_path: str | list[str],
+                                 case_insensitive: bool = False) -> TAbstractCollection:
+        try:
+            return self.get_collection(col_path, case_insensitive)
+        except:
+            new_col = self.add_collection(col_path)
+            root = self.get_root()
+            new_path = new_col.get_path()
+            root.save()
+            return root.get_collection(new_path)
+
+    def add_collection(self, col_path: str | list[str]) -> TAbstractCollection:
+        raise NotImplementedError('This collection cannot add a collection')
+
+    def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_classes.get('sample'), self.id)
-        e.load_elements()
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id)
+        e.load_elements(per_page)
         return e
 
-    def get_sample(self, id) -> AbstractElement:
+    def get_reactions(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_classes.get('sample'), self.id)
-        return e.load_element(id)
-
-    def get_reactions(self) -> ElementSet:
-        root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_classes.get('reaction'), self.id)
-        e.load_elements()
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id)
+        e.load_elements(per_page)
         return e
 
-    def get_reaction(self, id) -> AbstractElement:
+    def get_research_plans(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_classes.get('reaction'), self.id)
-        return e.load_element(id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id)
+        e.load_elements(per_page)
+        return e
+
+    def get_wellplates(self, per_page=10) -> ElementSet:
+        root = self.get_root()
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id)
+        e.load_elements(per_page)
+        return e
 
 
-class Collection(AbstractCollection):
+class AbstractEditableCollection(AbstractCollection):
+
+    def new_sample(self) -> AbstractElement:
+        return self._create_new_element('sample')
+
+    def new_solvent(self, name) -> AbstractElement:
+        root = self.get_root()
+        new_json = root._element_manager.build_solvent_sample(name, self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id)
+        return e.new_element(new_json)
+
+    def new_reaction(self) -> AbstractElement:
+        return self._create_new_element('reaction')
+
+    def new_research_plan(self) -> AbstractElement:
+        return self._create_new_element('research_plan')
+
+    def new_wellplate(self) -> AbstractElement:
+        return self._create_new_element('wellplate')
+
+    def _create_new_element(self, type_name) -> AbstractElement:
+        root = self.get_root()
+        new_json = root._element_manager.build_new(type_name, self.id)
+
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id)
+        return e.new_element(new_json)
+
+
+class Collection(AbstractEditableCollection):
     permission_level: int = None
     reaction_detail_level: int = None
     sample_detail_level: int = None
@@ -111,15 +174,28 @@ class Collection(AbstractCollection):
 
     collection_json: dict = None
 
-    def __init__(self, collection_json: dict):
+    def __init__(self, collection_json: dict = None):
         super().__init__()
+        self.set_json(collection_json)
+
+    def set_json(self, collection_json):
+        if collection_json is None:
+            collection_json = self._get_new_json()
+
         self.collection_json = collection_json
-        self.set_children(collection_json.get('children', []))
+        self._set_children(collection_json.get('children', []))
         if 'children' in collection_json: del collection_json['children']
 
         for (key, val) in collection_json.items():
             if hasattr(self, key):
                 setattr(self, key, val)
+
+    def _get_new_json(self):
+        return {
+            "id": random(),
+            "label": 'New Collection',
+            "isNew": True
+        }
 
     def __iter__(self):
         for (key, val) in self.collection_json.items():
@@ -136,6 +212,14 @@ class Collection(AbstractCollection):
         dest = os.path.abspath(os.path.join(os.path.dirname(abs_path), dest))
         self.get_root().move(abs_path, dest)
 
+    def delete(self):
+        abs_path = self.get_path()
+        self.get_root().delete(abs_path)
+
+    def add_collection(self, name):
+        abs_path = os.path.join(self.get_path(), name)
+        return self.get_root().add_collection(abs_path)
+
 
 class RootSyncCollection(AbstractCollection):
 
@@ -151,32 +235,40 @@ class RootSyncCollection(AbstractCollection):
 class RootCollection(AbstractCollection):
     sync_root: RootSyncCollection = None
     all: dict = None
-    _element_classes: dict = {}
+    _element_manager: ElementManager
 
     def __init__(self, host_url: str, session: requests.Session):
         super().__init__()
         self._host_url = host_url
         self._session = session
         self.label = 'root'
+        self._deleted_ids = []
 
+    def set_element_manager(self, element_manager: ElementManager):
+        self._element_manager = element_manager
 
-    def set_element_classes(self, element_classes):
-        self._element_classes = element_classes
     def load_collection(self):
         collection_url = '{}/api/v1/collections/roots.json'.format(self._host_url)
 
         res = self._session.get(collection_url,
                                 headers=get_default_session_header())
+
+        if res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+
         collections = json.loads(res.content)
         self.all = self._load_all_collection()['collection']
         self.id = self.all['id']
-        self.set_children(collections['collections'])
+        self._set_children(collections['collections'])
 
     def _load_all_collection(self):
         collection_url = '{}/api/v1/collections/all'.format(self._host_url)
 
         res = self._session.get(collection_url,
                                 headers=get_default_session_header())
+
+        if res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         return json.loads(res.content)
 
     def load_sync_collection(self):
@@ -184,46 +276,73 @@ class RootCollection(AbstractCollection):
 
         res = self._session.get(collection_url,
                                 headers=get_default_session_header())
+
+        if res.status_code != 200:
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         collections = json.loads(res.content)
         self.sync_root = RootSyncCollection()
-        self.sync_root.set_children(collections['syncCollections'])
+        self.sync_root._set_children(collections['syncCollections'])
 
     def save(self):
         collection_url = '{}/api/v1/collections'.format(self._host_url)
         payload = self.to_json()
-        payload['deleted_ids'] = []
+        payload['deleted_ids'] = self._deleted_ids
         res = self._session.patch(collection_url,
-                            headers=get_json_session_header(),
-                            data=json.dumps(payload))
+                                  headers=get_json_session_header(),
+                                  data=json.dumps(payload))
+
         if res.status_code != 200:
-            raise ConnectionError('Saving collection error')
+            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+        self.load_collection()
 
-
-    def get_collection(self, col_path: str | list[str]) -> TAbstractCollection | None:
+    def get_collection(self, col_path: str | list[str], case_insensitive: bool = False) -> TAbstractCollection | None:
         col_path = self._prepare_path(col_path)
         current_pos = self
         for col_label in self._prepare_path(col_path):
-            current_pos = next((x for x in current_pos.children if x.label == col_label), None)
+            current_pos = next((x for x in current_pos.children if
+                                AbstractCollection.prepare_label(x.label, case_insensitive) == col_label), None)
             if current_pos is None:
                 raise ModuleNotFoundError("'{}' Collection Not Found".format('/'.join(col_path)))
         return current_pos
 
+    def move(self, src: str | list[str], dest: str | list[str], case_insensitive: bool = False):
+        prepared_src = self._prepare_path(src, case_insensitive)
+        src_col = self.get_collection(prepared_src, case_insensitive)
 
-
-    def move(self, src: str | list[str], dest: str | list[str]):
-        prepared_src = self._prepare_path(src)
-        src_col = self.get_collection(prepared_src)
-        idx = next((i for (i, x) in enumerate(src_col._parent.children) if x.label == prepared_src[-1]), None)
-        dest_col = self.get_collection(dest)
+        idx = next((i for (i, x) in enumerate(src_col._parent.children) if
+                    AbstractCollection.prepare_label(x.label, case_insensitive) == prepared_src[-1]), None)
+        dest_col = self.get_collection(dest, case_insensitive)
 
         src_col._parent.children.pop(idx)
         dest_col.children.append(src_col)
         self._update_relations()
 
+    def delete(self, src: str | list[str]):
+        prepared_src = self._prepare_path(src)
+        src_col = self.get_collection(prepared_src)
+        idx = next((i for (i, x) in enumerate(src_col._parent.children) if x.label == prepared_src[-1]), None)
+
+        src_col._parent.children.pop(idx)
+        src_col._parent = None
+        self._deleted_ids.append(src_col.id)
+
+    def add_collection(self, path_to_new: str | list[str]):
+        prepared_src = self._prepare_path(path_to_new)
+        src_col = self.get_collection(prepared_src[:-1])
+        c = Collection()
+        c.label = prepared_src[-1]
+        src_col.children.append(c)
+        self._update_relations()
+        return c
+
     def to_json(self) -> dict:
         return {'collections': super().to_json()['children']}
 
-    def _prepare_path(self, col_path: str | list[str]) -> list[str]:
+    def _prepare_path(self, col_path: str | list[str], case_insensitive: bool = False) -> list[str]:
         if type(col_path) == str:
-            col_path = col_path.strip('/').split('/')
+            if not col_path.startswith('/'): col_path = '/' + col_path
+            col_path = [x for x in os.path.abspath(col_path).strip('/').split('/') if x != '']
+            if case_insensitive:
+                col_path = [x.lower() for x in col_path]
+
         return col_path

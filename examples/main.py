@@ -7,20 +7,16 @@ import PIL
 from chemotion_api import Instance
 from examples.utils import load_config, CONFIG
 
-
 if __name__ == '__main__':
-    logging.basicConfig(format='%(levelname)s->%(message)s',  filename='ChemotionAPI.log', encoding='utf-8', level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler())
 
     load_config()
 
     instance = Instance(CONFIG.get('ELN_URL')).test_connection().login(CONFIG.get('ELN_USER'), CONFIG.get('ELN_PASS'))
     user = instance.get_user()
 
-
-    col = instance.get_all_collections()
+    col = instance.get_root_collections()
     samples = col.get_collection('/Martins').get_samples()
-    sample = col.get_collection('/Martins').get_sample(2812)
+    sample = instance.get_sample(2812)
     sample.properties['boiling_point_lowerbound'] = '55.5'
     sample.properties['boiling_point_upperbound'] = '65.5'
     sample.properties['name'] = "Test Sample API"
@@ -35,10 +31,11 @@ if __name__ == '__main__':
     except:
         print('OK')
 
-
     sample.segments['Enzyme methods data']['Additional information on the enzyme']['Tissue'] = 'Test'
-    sample.segments['Enzyme methods data']['Assay conditions']['Buffer'].append(sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][0].copy())
-    sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][-1]['Concentration']['value'] = int(random.random() * 500)
+    sample.segments['Enzyme methods data']['Assay conditions']['Buffer'].append(
+        sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][0].copy())
+    sample.segments['Enzyme methods data']['Assay conditions']['Buffer'][-1]['Concentration']['value'] = int(
+        random.random() * 500)
     sample.analyses[0].datasets[0]['General information']['title'] = 'Hallo Test Title'
     sample.analyses[0].datasets[0].write_data_set_xlsx("Sample_Data")
     sample.analyses[0].datasets[0].write_zip("Sample_Data")

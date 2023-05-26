@@ -1,18 +1,24 @@
+import typing
+
 import requests
 from typing import TypeVar
 
 from chemotion_api.collection import RootCollection
-from chemotion_api.generic_elements import GenericElements
+from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User
 from chemotion_api.utils import get_default_session_header
 from  requests.exceptions import ConnectionError
+
+from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction
+from chemotion_api.elements.sample import MoleculeManager
 
 TInstance = TypeVar("TInstance", bound="Instance")
 class Instance:
     def __init__(self, host_url: str):
         self.host_url = host_url.removesuffix('/')
         self._session = requests.Session()
-        self._all_elements = None
+        self._root_col = None
+        self.element_manager = ElementManager(host_url, self._session)
 
     def test_connection(self) -> TInstance:
         ping_url = "{}/api/v1/public/ping".format(self.host_url)
@@ -41,14 +47,36 @@ class Instance:
         u.load()
         return u
 
-    def get_all_collections(self):
-        root_col = RootCollection(self.host_url, self._session)
-        root_col.set_element_classes(self.all_element_classes)
-        root_col.load_collection()
-        root_col.load_sync_collection()
-        return root_col
+    def get_root_collection(self, reload=True) -> RootCollection:
+        if reload or self._root_col is None:
+            self._root_col = RootCollection(self.host_url, self._session)
+            self._root_col.set_element_manager(self.element_manager)
+            self._root_col.load_collection()
+            self._root_col.load_sync_collection()
+        return self._root_col
+
     @property
     def all_element_classes(self) -> dict[str: str]:
-        if self._all_elements is None:
-            self._all_elements = GenericElements.get_all_classes(self.host_url, self._session)
-        return self._all_elements
+        return self.element_manager.all_classes
+
+    def get_reaction(self, id) -> Reaction:
+        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('reaction'))
+        return typing.cast(Reaction, e.load_element(id))
+
+    def get_wellplate(self, id) -> Wellplate:
+        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('wellplate'))
+        return typing.cast(Wellplate, e.load_element(id))
+
+    def get_research_plan(self, id) -> AbstractElement:
+        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('research_plan'))
+        return e.load_element(id)
+
+    def get_sample(self, id) -> Sample:
+        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('sample'))
+        return typing.cast(Sample, e.load_element(id))
+
+    def molecule(self):
+        return MoleculeManager(self.host_url, self._session)
+
+    def get_solvent_list(self):
+        return list(ElementManager.get_solvent_list().keys())
