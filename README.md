@@ -284,11 +284,8 @@ samples = instance.get_root_collection(reload=False).get_collection('Col1A').get
 ```
 
 See [User Basics](#user-basics) or [Collections](#collections) on how to fetch other types than Samples. 
-A [Samples](https://chemotion.net/docs/eln/ui/elements/samples) object like any other element ([Reactions](https://chemotion.net/docs/eln/ui/elements/reactions),
-[Research Plans](https://chemotion.net/docs/eln/ui/details_modal?_highlight=research#detail-modal-for-research-plan),
-[Wellplates](https://chemotion.net/docs/eln/ui/elements/wellplates)
-and/or [Generic elements](https://chemotion.net/docs/eln/admin/generic_config)) object has some common basic properties. 
-We will introduce these common properties based on the sample object first. Following we go into the individual features of the objects. 
+All types of element (samples, reactions, research plans, wellplates, and/or general elements), have some common basic properties.
+We will introduce these common properties based on the sample object first. After this introduction of the common functions we go into the individual features of the objects. 
 
 Each element has the _json_data_ object. It contains the origen data fetched from the server and should NOT be manipulated by you.
 Instead, you can use the preprocessed objects _properties_, _analyses_ and _segments_. The _properties_ is a simple [dict](https://docs.python.org/3/tutorial/datastructures.html#dictionaries) and _analyses_ is a list of extended [dicts](https://docs.python.org/3/tutorial/datastructures.html#dictionaries) objects.
