@@ -38,7 +38,7 @@ def config_login():
 def logged_in_instance():
     instance = Instance(CONFIG['ELN_URL']).test_connection().login(CONFIG['ELN_USER'], CONFIG['ELN_PASS'])
     yield instance
-    root = instance.get_root_collections()
+    root = instance.get_root_collection()
     for col_i in reversed(range(len(root.children))):
         if root.children[col_i].label != 'STATIC_TEST':
             root.children[col_i].delete()
@@ -47,7 +47,7 @@ def logged_in_instance():
 @pytest.fixture()
 def instance_with_test_samples(logged_in_instance):
     name = uuid.uuid4().__str__()
-    root_col = logged_in_instance.get_root_collections()
+    root_col = logged_in_instance.get_root_collection()
     root_col.add_collection(name)
     root_col.save()
     main_collection = root_col.get_collection(name)

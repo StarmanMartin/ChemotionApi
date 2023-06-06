@@ -27,6 +27,7 @@ class AbstractCollection:
 
     def __init__(self):
         self.children = []
+        self.is_sync = False
 
     def __str__(self) -> str:
         return self.get_path()
@@ -52,6 +53,7 @@ class AbstractCollection:
     def _update_relations(self):
         for child in self.children:
             child._parent = self
+            child.is_sync = self.is_sync
             child._update_relations()
 
     def to_json(self) -> dict:
@@ -105,29 +107,31 @@ class AbstractCollection:
             return root.get_collection(new_path)
 
     def add_collection(self, col_path: str | list[str]) -> TAbstractCollection:
+        if self.is_sync:
+            raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
     def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id, self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_reactions(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id, self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_research_plans(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id, self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_wellplates(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id, self.is_sync)
         e.load_elements(per_page)
         return e
 
@@ -140,7 +144,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_solvent(self, name) -> AbstractElement:
         root = self.get_root()
         new_json = root._element_manager.build_solvent_sample(name, self.id)
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id, self.is_sync)
         return e.new_element(new_json)
 
     def new_reaction(self) -> AbstractElement:
@@ -156,7 +160,7 @@ class AbstractEditableCollection(AbstractCollection):
         root = self.get_root()
         new_json = root._element_manager.build_new(type_name, self.id)
 
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id, self.is_sync)
         return e.new_element(new_json)
 
 
@@ -223,13 +227,24 @@ class Collection(AbstractEditableCollection):
 
 class RootSyncCollection(AbstractCollection):
 
-    def __init__(self):
+    def __init__(self, host_url: str, session: requests.Session, element_manager: ElementManager):
         super().__init__()
+        self.is_synced = True
+        self._host_url = host_url
+        self._session = session
+        self._element_manager = element_manager
         self.label = 'sync_root'
+
 
     def to_json(self):
         as_dict = dict(self)
         return super().to_json() | as_dict
+
+    def move(self, *args, **kwargs):
+        raise Exception("You cannot move a synced collection collection!")
+
+    def delete(self, *args, **kwargs):
+        raise Exception("You cannot delete a synced collection collection!")
 
 
 class RootCollection(AbstractCollection):
@@ -280,7 +295,7 @@ class RootCollection(AbstractCollection):
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         collections = json.loads(res.content)
-        self.sync_root = RootSyncCollection()
+        self.sync_root = RootSyncCollection(self._host_url, self._session, self._element_manager)
         self.sync_root._set_children(collections['syncCollections'])
 
     def save(self):

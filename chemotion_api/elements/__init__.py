@@ -9,13 +9,16 @@ from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import get_default_session_header
 import requests
 
+
 class ElementSet(list):
-    def __init__(self, host_url: str, session: requests.Session, element_type: dict, collection_id: int = None):
+    def __init__(self, host_url: str, session: requests.Session, element_type: dict,
+                 collection_id: int = None, collection_is_sync: bool = False):
         super().__init__()
         self._host_url = host_url
         self._session = session
         self._element_type = element_type
         self._collection_id = collection_id
+        self._collection_is_sync = collection_is_sync
         self._page = 1
         self.max_page = 1
         self._per_page = 10
@@ -24,10 +27,10 @@ class ElementSet(list):
     def page(self):
         return self._page
 
-
     @page.setter
     def page(self, page: int):
         self._set_page(page)
+
     def _set_page(self, page: int) -> bool:
         if page > 0 and page <= self.max_page:
             self._page = page
@@ -43,6 +46,7 @@ class ElementSet(list):
     def next_page(self):
         self._set_page(self.page + 1)
         return self
+
     def prev_page(self):
         self._set_page(self.page - 1)
         return self
@@ -54,12 +58,15 @@ class ElementSet(list):
             raise ValueError('load_elements only works if collection_id is set!')
 
         segments = GenericSegments(self._host_url, self._session)
-        payload = {'collection_id': self._collection_id,
-                   'page': self.page,
+        payload = {'page': self.page,
                    'per_page': self._per_page,
                    'filter_created_at': False,
                    'product_only': False,
                    'el_type': self._element_type['name']}
+        if self._collection_is_sync:
+            payload['sync_collection_id'] = self._collection_id
+        else:
+            payload['collection_id'] = self._collection_id
         res = self._session.get(self._get_url() + '.json',
                                 headers=get_default_session_header(),
                                 data=payload)
@@ -77,7 +84,8 @@ class ElementSet(list):
 
     def load_element(self, id: int) -> AbstractElement:
         segments = GenericSegments(self._host_url, self._session)
-        s = self._get_element_class()(segments, self._host_url, self._session, id=id, element_type=self._element_type['name'])
+        s = self._get_element_class()(segments, self._host_url, self._session, id=id,
+                                      element_type=self._element_type['name'])
         self.append(s)
         return s
 

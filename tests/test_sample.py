@@ -11,7 +11,7 @@ def test_get_sample_success(instance_with_test_samples: dict):
 
 
 def test_new_sample_success(logged_in_instance: Instance):
-    col = logged_in_instance.get_root_collections()
+    col = logged_in_instance.get_root_collection()
     try:
         m_col = col.get_collection('/test_col')
     except:
@@ -40,7 +40,7 @@ def test_solvents(logged_in_instance):
     assert len(solver_list) == 190
     assert '1-Butyl-3-methylimidazolium Bis(trifluoromethanesulfonyl)imide' in solver_list
 
-    col = logged_in_instance.get_root_collections().get_or_create_collection('/test_col')
+    col = logged_in_instance.get_root_collection().get_or_create_collection('/test_col')
     solv = col.new_solvent('CDCl3')
     solv.save()
     assert solv.properties['name'] == 'Solvent: CDCl3'

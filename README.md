@@ -308,7 +308,7 @@ sample.analyses[-1]['name'] = 'My Sample analyses'
 sample.save()
 ```
 
-For all properties use something like:
+To see all possible properties use something like:
 
 ```python
 import json
