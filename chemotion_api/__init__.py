@@ -7,12 +7,14 @@ from chemotion_api.collection import RootCollection
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User
 from chemotion_api.utils import get_default_session_header
-from  requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError
 
-from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction
+from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction, GenericElement
 from chemotion_api.elements.sample import MoleculeManager
 
 TInstance = TypeVar("TInstance", bound="Instance")
+
+
 class Instance:
     def __init__(self, host_url: str):
         self.host_url = host_url.removesuffix('/')
@@ -33,8 +35,8 @@ class Instance:
         login_url = "{}/users/sign_in".format(self.host_url)
 
         res = self._session.post(login_url,
-                           headers=headers,
-                           data=payload)
+                                 headers=headers,
+                                 data=payload)
 
         if res.status_code == 200 and not res.url.endswith('sign_in'):
             return self
@@ -74,6 +76,19 @@ class Instance:
     def get_sample(self, id) -> Sample:
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('sample'))
         return typing.cast(Sample, e.load_element(id))
+
+    def get_generic_by_name(self, name, id) -> GenericElement:
+        elem = self.all_element_classes.get(name)
+        if elem is None:
+            raise ValueError(f'Could not find a generic element under the name: "{name}"')
+        e = ElementSet(self.host_url, self._session, elem)
+        return typing.cast(GenericElement, e.load_element(id))
+
+    def get_generic_by_label(self, label, id) -> GenericElement:
+        for (elem_name, elem) in self.all_element_classes.items():
+            if elem['label'] == label:
+                return self.get_generic_by_name(elem_name, id)
+        raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
     def molecule(self):
         return MoleculeManager(self.host_url, self._session)

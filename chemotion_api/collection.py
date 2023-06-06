@@ -42,7 +42,7 @@ class AbstractCollection:
         ids = []
         for child in children:
             ids.append(child['id'])
-            child_obj: TAbstractCollection|None = next((x for x in self.children if x.id == child['id']), None)
+            child_obj: TAbstractCollection | None = next((x for x in self.children if x.id == child['id']), None)
             if child_obj is None:
                 self.children.append(Collection(child))
             else:
@@ -113,27 +113,48 @@ class AbstractCollection:
 
     def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id,
+                       self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_reactions(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id,
+                       self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_research_plans(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id,
+                       self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_wellplates(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id,
+                       self.is_sync)
         e.load_elements(per_page)
         return e
+
+    def get_generics_by_name(self, name, per_page=10):
+        root = self.get_root()
+        elem = root._element_manager.all_classes.get(name)
+        if elem is None:
+            raise ValueError(f'Could not find a generic element under the name: "{name}"')
+
+        e = ElementSet(root._host_url, root._session, elem, self.id, self.is_sync)
+        e.load_elements(per_page)
+        return e
+
+    def get_generics_by_label(self, label, id):
+        root = self.get_root()
+        for (elem_name, elem) in root._element_manager.all_classes.items():
+            if elem['label'] == label:
+                return self.get_generics_by_label(elem_name, id)
+        raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
 
 class AbstractEditableCollection(AbstractCollection):
@@ -144,7 +165,8 @@ class AbstractEditableCollection(AbstractCollection):
     def new_solvent(self, name) -> AbstractElement:
         root = self.get_root()
         new_json = root._element_manager.build_solvent_sample(name, self.id)
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id,
+                       self.is_sync)
         return e.new_element(new_json)
 
     def new_reaction(self) -> AbstractElement:
@@ -160,7 +182,8 @@ class AbstractEditableCollection(AbstractCollection):
         root = self.get_root()
         new_json = root._element_manager.build_new(type_name, self.id)
 
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id, self.is_sync)
+        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id,
+                       self.is_sync)
         return e.new_element(new_json)
 
 
@@ -234,7 +257,6 @@ class RootSyncCollection(AbstractCollection):
         self._session = session
         self._element_manager = element_manager
         self.label = 'sync_root'
-
 
     def to_json(self):
         as_dict = dict(self)

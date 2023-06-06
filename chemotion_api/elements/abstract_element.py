@@ -248,7 +248,7 @@ class AbstractElement:
             return 'wellplate'
         elif name == 'research_plan':
             return 'research_plan'
-        return 'generic_element'
+        return 'element'
 
     @classmethod
     def get_url(cls, name, host_url):
@@ -260,4 +260,4 @@ class AbstractElement:
             return '%s/api/v1/wellplates' % host_url
         elif name == 'research_plan':
             return '%s/api/v1/research_plans' % host_url
-        return '%s/api/v1/generic_elements' % host_url
+        return f'{host_url}/api/v1/generic_elements'

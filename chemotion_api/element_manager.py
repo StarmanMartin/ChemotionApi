@@ -17,11 +17,13 @@ class ElementManager:
         self._session = session
         self._host_url = host_url
         self._all_classes = None
+        self.is_loaded = False
 
     @property
     def all_classes(self):
         if self._all_classes is None:
             self._all_classes = self.get_all_classes()
+            self.is_loaded = True
         return self._all_classes
 
     def get_all_classes(self):

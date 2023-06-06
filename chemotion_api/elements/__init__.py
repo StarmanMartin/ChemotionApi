@@ -110,6 +110,8 @@ class ElementSet(list):
         raise TypeError('Generic type "{}" cannot be found'.format(self._element_type['name']))
 
     def _get_result_key(self):
+        if self._element_type['is_generic']:
+            return 'generic_element'
         return AbstractElement.get_response_key(self._element_type['name'])
 
     def _get_url(self):
