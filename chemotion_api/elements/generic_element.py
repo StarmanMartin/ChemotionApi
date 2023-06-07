@@ -8,11 +8,6 @@ class GenericElement(AbstractElement):
     def _set_json_data(self, json_data):
         super()._set_json_data(json_data)
 
-    def load_image(self):
-        image_url = "{}/images/samples/{}".format(self._host_url, self._svg_file)
-        res = self._session.get(image_url, headers=get_default_session_header())
-        return res.text
-
     def save_url(self):
         if self.id is not None:
             return "{}/api/v1/generic_elements/{}".format(self._host_url, self.id)
