@@ -9,13 +9,33 @@ from chemotion_api.user import User
 from chemotion_api.utils import get_default_session_header
 from requests.exceptions import ConnectionError
 
-from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction, GenericElement
+from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan
 from chemotion_api.elements.sample import MoleculeManager
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
 
 class Instance:
+    """ The instance object is the core object of the Chemotion API. In order for the API to work,
+    a connection to a Chmotion (server-)instance must first be established.
+    a Instance object manges such a connection. To initializes an instance it needs
+     the host URL of the chemotion server as a string.
+
+    :param host_url: URL for the new :class:`Request` object
+
+    Usage::
+
+    >>> from chemotion_api import Instance
+    >>> from  requests.exceptions import ConnectionError as CE
+    >>> import logging
+    >>> try:
+    >>>     s = Instance('http(d)://xxx.xxx.xxx').test_connection().login('<USER>', "<PASSWORD>")
+    >>> except CE as e:
+    >>>     logging.error(f"A connection to Chemotion ({s.host_url}) cannot be established")
+
+
+    """
+
     def __init__(self, host_url: str):
         self.host_url = host_url.removesuffix('/')
         self._session = requests.Session()
@@ -23,6 +43,14 @@ class Instance:
         self.element_manager = ElementManager(host_url, self._session)
 
     def test_connection(self) -> TInstance:
+        """
+        This test_connection methode simply test if the connection to a chemotion instance can be established.
+        The instance does not need to be logged in to use this methode.
+
+        :return: the instance self
+
+        :raises ConnectionError (requests.exceptions.ConnectionError) if the connection cannot be established.
+        """
         ping_url = "{}/api/v1/public/ping".format(self.host_url)
         res = requests.get(url=ping_url)
         if res.status_code != 204:
@@ -30,6 +58,18 @@ class Instance:
         return self
 
     def login(self, user: str, password: str) -> TInstance:
+        """
+        This login methode allows you to log in to a chemotion instance.
+        Hence, you need a valid chemotion user (abbreviation name or e-mail)
+
+        :param user: abbreviation name or e-mail of a chemotion user
+        :param password: The password of the user
+
+        :return: the instance self
+
+        :raise ConnectionError (requests.exceptions.ConnectionError) if the logging was not successful.
+        """
+
         headers = get_default_session_header()
         payload = {'user[login]': user, 'user[password]': password}
         login_url = "{}/users/sign_in".format(self.host_url)
@@ -45,6 +85,13 @@ class Instance:
         raise PermissionError('Could not login!!')
 
     def get_user(self) -> User:
+        """
+        This get_user methode initializes a new User object. The user object allows you to fetch and edit user data.
+
+        :return: a new User instance
+
+        :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
+        """
         u = User(self.host_url, self._session)
         u.load()
         return u
@@ -58,22 +105,74 @@ class Instance:
         return self._root_col
 
     @property
-    def all_element_classes(self) -> dict[str: str]:
+    def all_element_classes(self) -> dict[str: dict]:
+        """
+        This all_element_classes fetches all information about all elements such as
+         Sample, Reaction, Wellplate and Research plan and all generic elements
+
+        :return: a dictionary which contains all information about all elements
+
+        :raise RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         return self.element_manager.all_classes
 
-    def get_reaction(self, id) -> Reaction:
+    def get_reaction(self, id: int) -> Reaction:
+        """
+        Fetches information of one Reaction object from the Chemotion server.
+        It automatically parses the data into a Python-Reaction-Object. However, you need to know the correct internally used ID
+        of the Reaction to be able to fetch it. Other methods to get Elements from Chemotion
+        are accessible via the Collection objects
+
+        :param id: The Database ID of the desired Element
+        :return: a Reacton object
+
+         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('reaction'))
         return typing.cast(Reaction, e.load_element(id))
 
     def get_wellplate(self, id) -> Wellplate:
+        """
+        Fetches information of one Wellplate object from the Chemotion server.
+        It automatically parses the data into a Python-Wellplate-Object. However, you need to know the correct internally used ID
+        of the Wellplate to be able to fetch it. Other methods to get Elements from Chemotion
+        are accessible via the Collection objects
+
+        :param id: The Database ID of the desired Element
+        :return: a Reacton object
+
+         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('wellplate'))
         return typing.cast(Wellplate, e.load_element(id))
 
-    def get_research_plan(self, id) -> AbstractElement:
+    def get_research_plan(self, id) -> ResearchPlan:
+        """
+        Fetches information of one Research Plan object from the Chemotion server.
+        It automatically parses the data into a Python-ResearchPlan-Object. However, you need to know the correct internally used ID
+        of the Research Plan to be able to fetch it. Other methods to get Elements from Chemotion
+        are accessible via the Collection objects
+
+        :param id: The Database ID of the desired Element
+        :return: a ResearchPlan object
+
+         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('research_plan'))
-        return e.load_element(id)
+        return typing.cast(ResearchPlan, e.load_element(id))
 
     def get_sample(self, id) -> Sample:
+        """
+        Fetches information of one Sample object from the Chemotion server.
+        It automatically parses the data into a Python-Sample-Object. However, you need to know the correct internally used ID
+        of the Sample to be able to fetch it. Other methods to get Elements from Chemotion
+        are accessible via the Collection objects
+
+        :param id: The Database ID of the desired Element
+        :return: a Sample object
+
+         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('sample'))
         return typing.cast(Sample, e.load_element(id))
 

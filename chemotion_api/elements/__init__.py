@@ -5,10 +5,11 @@ from chemotion_api.elements.generic_element import GenericElement
 from chemotion_api.elements.sample import Sample
 from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
+from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import get_default_session_header
 import requests
-
+from requests.exceptions import RequestException
 
 class ElementSet(list):
     def __init__(self, host_url: str, session: requests.Session, element_type: dict,
@@ -71,7 +72,7 @@ class ElementSet(list):
                                 headers=get_default_session_header(),
                                 data=payload)
         if res.status_code != 200:
-            raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
+            raise RequestException('{} -> {}'.format(res.status_code, res.text))
 
         try:
             self.max_page = int(res.headers.get('X-Total-Pages', 1))
@@ -105,7 +106,7 @@ class ElementSet(list):
         elif self._element_type['name'] == 'wellplate':
             return Wellplate
         elif self._element_type['name'] == 'research_plan':
-            return 'research_plan'
+            return ResearchPlan
 
         raise TypeError('Generic type "{}" cannot be found'.format(self._element_type['name']))
 

@@ -10,6 +10,7 @@ from chemotion_api.user import User
 
 from chemotion_api.elements.empty_elements import init_container
 
+from requests.exceptions import RequestException
 
 class ElementManager:
 
@@ -20,7 +21,7 @@ class ElementManager:
         self.is_loaded = False
 
     @property
-    def all_classes(self):
+    def all_classes(self) -> dict[str: dict]:
         if self._all_classes is None:
             self._all_classes = self.get_all_classes()
             self.is_loaded = True
@@ -30,7 +31,7 @@ class ElementManager:
         get_url = "{}/api/v1/generic_elements/klasses.json".format(self._host_url)
         res = self._session.get(get_url, headers=get_default_session_header())
         if res.status_code != 200:
-            raise ConnectionError('Counld not get the genetic elements')
+            raise RequestException('Counld not get the genetic elements')
         all_classes = {}
         for x in res.json()['klass']:
             all_classes[x['name']] = x

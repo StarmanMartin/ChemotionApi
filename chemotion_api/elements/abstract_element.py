@@ -9,6 +9,7 @@ from chemotion_api.generic_segments import GenericSegments
 from chemotion_api.utils import add_to_dict, get_json_session_header, parse_generic_object_json, \
     clean_generic_object_json, get_default_session_header
 
+from requests.exceptions import RequestException
 
 class Dataset(dict):
     def __init__(self, host_url: str, session: requests.Session, json_data: dict):
@@ -136,7 +137,7 @@ class AbstractElement:
                                 headers=get_default_session_header(),
                                 data=payload)
         if res.status_code != 200:
-            raise ConnectionError("{} -> {}".format(res.status_code, res.text))
+            raise RequestException("{} -> {}".format(res.status_code, res.text))
         json_data = res.json()[self.get_response_key(self.element_type)]
         self._set_json_data(json_data)
 
@@ -175,7 +176,7 @@ class AbstractElement:
         else:
             res = self._session.put(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
         if res.status_code != 200 and res.status_code != 201:
-            raise ConnectionError('{} -> '.format(res.status_code, res.text))
+            raise RequestException('{} -> '.format(res.status_code, res.text))
         if is_created:
             self._set_json_data(res.json()[self.element_type])
 
