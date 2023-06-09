@@ -18,7 +18,7 @@ TInstance = TypeVar("TInstance", bound="Instance")
 class Instance:
     """ The instance object is the core object of the Chemotion API. In order for the API to work,
     a connection to a Chmotion (server-)instance must first be established.
-    a Instance object manges such a connection. To initializes an instance it needs
+    an Instance object manges such a connection. To initializes an instance it needs
      the host URL of the chemotion server as a string.
 
     :param host_url: URL for the new :class:`Request` object

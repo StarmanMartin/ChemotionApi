@@ -1,11 +1,11 @@
 import uuid
 
 
-def get_default_session_header():
+def get_default_session_header() -> dict[str: str]:
     return {'User-Agent': 'Mozilla/5.0'}
 
 
-def get_json_session_header():
+def get_json_session_header() -> dict[str: str]:
     header = get_default_session_header()
     header['Content-Type'] = 'application/json'
     return header
