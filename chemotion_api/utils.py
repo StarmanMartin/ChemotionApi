@@ -1,11 +1,11 @@
 import uuid
 
 
-def get_default_session_header() -> dict[str: str]:
+def get_default_session_header() -> dict[str, str]:
     return {'User-Agent': 'Mozilla/5.0'}
 
 
-def get_json_session_header() -> dict[str: str]:
+def get_json_session_header() -> dict[str, str]:
     header = get_default_session_header()
     header['Content-Type'] = 'application/json'
     return header
@@ -22,7 +22,7 @@ def add_to_dict(obj: dict, key: str, val: any) -> str:
     return key
 
 
-def parse_generic_field(field: dict) -> dict[str: any]:
+def parse_generic_field(field: dict) -> dict[str, any]:
     sub_fields = field.get('sub_fields')
     if type(sub_fields) is list and len(sub_fields) > 0:
         field_mapping = {'__field': field.get('field')}
@@ -50,7 +50,7 @@ def parse_generic_field(field: dict) -> dict[str: any]:
     return {'values': field.get('value'), 'obj_mapping': field.get('id', field.get('field'))}
 
 
-def parse_generic_layer(layer: dict) -> dict[str: dict]:
+def parse_generic_layer(layer: dict) -> dict[str, dict]:
     temp_layer = {}
     temp_id_layer = {'__key': layer.get('key')}
     fields = layer.get('fields', [])
@@ -77,7 +77,7 @@ def parse_generic_object_json(segment_json_data: dict) -> dict:
     return {'values': temp_segment, 'obj_mapping': temp_id_segment}
 
 
-def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str = None) -> dict[str: any]:
+def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str = None) -> dict[str, any]:
     sub_fields = field_obj.get('sub_fields')
     if type(sub_fields) is list and len(sub_fields) > 0:
         if field_obj.get('type') == 'input-group':
@@ -102,7 +102,7 @@ def clean_generic_field(field_obj: dict, values: any, field_mapping: dict | str 
     return field_obj
 
 
-def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: dict) -> dict:
+def clean_generic_object_json(segment_json_data: dict, values: dict, mapping: dict):
     for (k, v) in values.items():
         layer_mapping = mapping.get(k, {})
         layer_key = layer_mapping.get('__key')

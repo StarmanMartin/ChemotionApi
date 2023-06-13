@@ -48,6 +48,7 @@ class Instance:
         The instance does not need to be logged in to use this methode.
 
         :return: the instance self
+        :type Instance
 
         :raises ConnectionError (requests.exceptions.ConnectionError) if the connection cannot be established.
         """
@@ -105,7 +106,7 @@ class Instance:
         return self._root_col
 
     @property
-    def all_element_classes(self) -> dict[str: dict]:
+    def all_element_classes(self) -> dict[str, dict[str, str]]:
         """
         This all_element_classes fetches all information about all elements such as
          Sample, Reaction, Wellplate and Research plan and all generic elements
@@ -131,7 +132,7 @@ class Instance:
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('reaction'))
         return typing.cast(Reaction, e.load_element(id))
 
-    def get_wellplate(self, id) -> Wellplate:
+    def get_wellplate(self, id: int) -> Wellplate:
         """
         Fetches information of one Wellplate object from the Chemotion server.
         It automatically parses the data into a Python-Wellplate-Object. However, you need to know the correct internally used ID
@@ -146,7 +147,7 @@ class Instance:
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('wellplate'))
         return typing.cast(Wellplate, e.load_element(id))
 
-    def get_research_plan(self, id) -> ResearchPlan:
+    def get_research_plan(self, id: int) -> ResearchPlan:
         """
         Fetches information of one Research Plan object from the Chemotion server.
         It automatically parses the data into a Python-ResearchPlan-Object. However, you need to know the correct internally used ID
@@ -161,7 +162,7 @@ class Instance:
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('research_plan'))
         return typing.cast(ResearchPlan, e.load_element(id))
 
-    def get_sample(self, id) -> Sample:
+    def get_sample(self, id: int) -> Sample:
         """
         Fetches information of one Sample object from the Chemotion server.
         It automatically parses the data into a Python-Sample-Object. However, you need to know the correct internally used ID
