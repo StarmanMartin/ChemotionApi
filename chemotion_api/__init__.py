@@ -119,7 +119,7 @@ class Instance:
 
     def get_reaction(self, id: int) -> Reaction:
         """
-        Fetches information of one Reaction object from the Chemotion server.
+        Fetches data of one Reaction object from the Chemotion server.
         It automatically parses the data into a Python-Reaction-Object. However, you need to know the correct internally used ID
         of the Reaction to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
@@ -134,7 +134,7 @@ class Instance:
 
     def get_wellplate(self, id: int) -> Wellplate:
         """
-        Fetches information of one Wellplate object from the Chemotion server.
+        Fetches data of one Wellplate object from the Chemotion server.
         It automatically parses the data into a Python-Wellplate-Object. However, you need to know the correct internally used ID
         of the Wellplate to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
@@ -149,7 +149,7 @@ class Instance:
 
     def get_research_plan(self, id: int) -> ResearchPlan:
         """
-        Fetches information of one Research Plan object from the Chemotion server.
+        Fetches data of one Research Plan object from the Chemotion server.
         It automatically parses the data into a Python-ResearchPlan-Object. However, you need to know the correct internally used ID
         of the Research Plan to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
@@ -164,7 +164,7 @@ class Instance:
 
     def get_sample(self, id: int) -> Sample:
         """
-        Fetches information of one Sample object from the Chemotion server.
+        Fetches data of one Sample object from the Chemotion server.
         It automatically parses the data into a Python-Sample-Object. However, you need to know the correct internally used ID
         of the Sample to be able to fetch it. Other methods to get Elements from Chemotion
         are accessible via the Collection objects
@@ -177,7 +177,19 @@ class Instance:
         e = ElementSet(self.host_url, self._session, self.all_element_classes.get('sample'))
         return typing.cast(Sample, e.load_element(id))
 
-    def get_generic_by_name(self, name, id) -> GenericElement:
+    def get_generic_by_name(self, name: str, id: int) -> GenericElement:
+        """
+        Fetches data of one Generic object from the Chemotion server. Which generic element type
+        It automatically parses the data into a Python-Generic-Object. However, you need to know the correct internally used ID
+        of the Generic element to be able to fetch it. Other methods to get Elements from Chemotion
+        are accessible via the Collection objects
+
+        :param name: The name of the Genetic Element
+        :param id: The Database ID of the desired Element
+        :return: a Sample object
+
+         :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
+        """
         elem = self.all_element_classes.get(name)
         if elem is None:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')

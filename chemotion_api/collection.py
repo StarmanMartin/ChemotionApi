@@ -70,7 +70,7 @@ class AbstractCollection:
         if hit:
             results.append(self)
         for x in self.children:
-            results += x.find()
+            results += x.find(**kwargs)
         return results
 
     def get_path(self) -> str:
@@ -252,7 +252,7 @@ class RootSyncCollection(AbstractCollection):
 
     def __init__(self, host_url: str, session: requests.Session, element_manager: ElementManager):
         super().__init__()
-        self.is_synced = True
+        self.is_sync = True
         self._host_url = host_url
         self._session = session
         self._element_manager = element_manager

@@ -42,7 +42,7 @@ class ElementSet(list):
     def iter_pages(self):
         self._page = 0
         while self._set_page(self.page + 1):
-            yield self.next_page()
+            yield self
 
     def next_page(self):
         self._set_page(self.page + 1)

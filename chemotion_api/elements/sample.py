@@ -109,6 +109,7 @@ class Sample(AbstractElement):
         return {
             'name': self.json_data.get('name'),
             'description': self.json_data.get('description'),
+            'external_label': self.json_data.get('external_label'),
             'boiling_point_lowerbound': int(boiling_range[0]) if boiling_range[0].isdigit() else None,
             'boiling_point_upperbound': int(boiling_range[1]) if boiling_range[1].isdigit() else None,
             'melting_point_lowerbound': int(melting_range[0]) if melting_range[0].isdigit() else None,
@@ -141,6 +142,7 @@ class Sample(AbstractElement):
     def _clean_properties_data(self):
         self.json_data['name'] = self.properties.get('name')
         self.json_data['description'] = self.properties.get('description')
+        self.json_data['external_label'] = self.properties.get('external_label')
         self.json_data['boiling_point_lowerbound'] = self.properties.get('boiling_point_lowerbound')
         self.json_data['boiling_point_upperbound'] = self.properties.get('boiling_point_upperbound')
         self.json_data['melting_point_lowerbound'] = self.properties.get('melting_point_lowerbound')
