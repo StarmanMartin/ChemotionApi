@@ -1,8 +1,7 @@
 import json
 
-import requests
 from requests.exceptions import ConnectionError
-from chemotion_api.utils import get_default_session_header
+from chemotion_api.connection import Connection
 
 
 class User:
@@ -28,18 +27,26 @@ class User:
     counters: dict[str:str] = None
     generic_admin: dict[str:bool] = None
 
-    def __init__(self, host_url: str, session: requests.Session):
-        self._host_url = host_url
+    def __init__(self, session: Connection):
         self._session = session
 
     def load(self):
-        user_url = '{}/api/v1/users/current.json'.format(self._host_url)
+        user_url = '/api/v1/users/current.json'
 
-        res = self._session.get(user_url,
-                                headers=get_default_session_header())
+        res = self._session.get(user_url)
         if res.status_code == 401:
             raise PermissionError('Not allowed to fetch user (Login first)')
         elif res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         for (key, val) in json.loads(res.content)['user'].items():
             setattr(self, key, val)
+
+
+    def is_admin(self):
+        return self.type == 'admin'
+
+    def is_device(self):
+        return self.type == 'device'
+
+    def is_group(self):
+        return self.type == 'group'

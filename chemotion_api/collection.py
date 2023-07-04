@@ -3,11 +3,10 @@ import os
 from random import random
 from typing import TypeVar
 
-import requests
+from chemotion_api.connection import Connection
 
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.elements import ElementSet, AbstractElement
-from chemotion_api.utils import get_default_session_header, get_json_session_header
 
 TAbstractCollection = TypeVar("TAbstractCollection", bound="AbstractCollection")
 TRootCollection = TypeVar("TRootCollection", bound="RootCollection")
@@ -35,12 +34,12 @@ class AbstractCollection:
     def __iter__(self):
         yield ('collections', self.children)
 
-    def _set_children(self, children: list[dict]):
-        if children is None:
+    def _set_children(self, new_children: list[dict]):
+        if new_children is None:
             self.children = []
             return
         ids = []
-        for child in children:
+        for child in new_children:
             ids.append(child['id'])
             child_obj: TAbstractCollection | None = next((x for x in self.children if x.id == child['id']), None)
             if child_obj is None:
@@ -106,35 +105,36 @@ class AbstractCollection:
             root.save()
             return root.get_collection(new_path)
 
-    def add_collection(self, col_path: str | list[str]) -> TAbstractCollection:
+    def add_collection(self, col_path: str | list[str]):
         if self.is_sync:
             raise Exception("You cannot add a collection to a synced collection!")
         raise NotImplementedError('This collection cannot add a collection')
 
+
     def get_samples(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
                        self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_reactions(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('reaction'), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get('reaction'), self.id,
                        self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_research_plans(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('research_plan'), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get('research_plan'), self.id,
                        self.is_sync)
         e.load_elements(per_page)
         return e
 
     def get_wellplates(self, per_page=10) -> ElementSet:
         root = self.get_root()
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('wellplate'), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get('wellplate'), self.id,
                        self.is_sync)
         e.load_elements(per_page)
         return e
@@ -145,7 +145,7 @@ class AbstractCollection:
         if elem is None:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')
 
-        e = ElementSet(root._host_url, root._session, elem, self.id, self.is_sync)
+        e = ElementSet(root._session, elem, self.id, self.is_sync)
         e.load_elements(per_page)
         return e
 
@@ -165,7 +165,7 @@ class AbstractEditableCollection(AbstractCollection):
     def new_solvent(self, name) -> AbstractElement:
         root = self.get_root()
         new_json = root._element_manager.build_solvent_sample(name, self.id)
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get('sample'), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get('sample'), self.id,
                        self.is_sync)
         return e.new_element(new_json)
 
@@ -182,7 +182,7 @@ class AbstractEditableCollection(AbstractCollection):
         root = self.get_root()
         new_json = root._element_manager.build_new(type_name, self.id)
 
-        e = ElementSet(root._host_url, root._session, root._element_manager.all_classes.get(type_name), self.id,
+        e = ElementSet(root._session, root._element_manager.all_classes.get(type_name), self.id,
                        self.is_sync)
         return e.new_element(new_json)
 
@@ -250,10 +250,9 @@ class Collection(AbstractEditableCollection):
 
 class RootSyncCollection(AbstractCollection):
 
-    def __init__(self, host_url: str, session: requests.Session, element_manager: ElementManager):
+    def __init__(self, session: Connection, element_manager: ElementManager):
         super().__init__()
         self.is_sync = True
-        self._host_url = host_url
         self._session = session
         self._element_manager = element_manager
         self.label = 'sync_root'
@@ -274,9 +273,8 @@ class RootCollection(AbstractCollection):
     all: dict = None
     _element_manager: ElementManager
 
-    def __init__(self, host_url: str, session: requests.Session):
+    def __init__(self, session: Connection):
         super().__init__()
-        self._host_url = host_url
         self._session = session
         self.label = 'root'
         self._deleted_ids = []
@@ -285,10 +283,9 @@ class RootCollection(AbstractCollection):
         self._element_manager = element_manager
 
     def load_collection(self):
-        collection_url = '{}/api/v1/collections/roots.json'.format(self._host_url)
+        collection_url = '/api/v1/collections/roots.json'
 
-        res = self._session.get(collection_url,
-                                headers=get_default_session_header())
+        res = self._session.get(collection_url)
 
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
@@ -299,35 +296,31 @@ class RootCollection(AbstractCollection):
         self._set_children(collections['collections'])
 
     def _load_all_collection(self):
-        collection_url = '{}/api/v1/collections/all'.format(self._host_url)
+        collection_url = '/api/v1/collections/all'
 
-        res = self._session.get(collection_url,
-                                headers=get_default_session_header())
+        res = self._session.get(collection_url)
 
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         return json.loads(res.content)
 
     def load_sync_collection(self):
-        collection_url = '{}/api/v1/syncCollections/sync_remote_roots'.format(self._host_url)
+        collection_url = '/api/v1/syncCollections/sync_remote_roots'
 
-        res = self._session.get(collection_url,
-                                headers=get_default_session_header())
+        res = self._session.get(collection_url)
 
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         collections = json.loads(res.content)
-        self.sync_root = RootSyncCollection(self._host_url, self._session, self._element_manager)
+        self.sync_root = RootSyncCollection(self._session, self._element_manager)
         self.sync_root._set_children(collections['syncCollections'])
 
     def save(self):
-        collection_url = '{}/api/v1/collections'.format(self._host_url)
+        collection_url = '/api/v1/collections'
         payload = self.to_json()
         payload['deleted_ids'] = self._deleted_ids
         res = self._session.patch(collection_url,
-                                  headers=get_json_session_header(),
-                                  data=json.dumps(payload))
-
+                                  data=payload)
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         self.load_collection()

@@ -1,7 +1,4 @@
-from collections.abc import Sequence
-
 from chemotion_api.elements.abstract_element import AbstractElement
-from chemotion_api.utils import get_default_session_header
 from datetime import datetime
 
 from chemotion_api.elements.sample import Sample
@@ -21,13 +18,13 @@ class MaterialList(list):
 class Reaction(AbstractElement):
     datetime_format = '%m/%d/%Y %H:%M:%S'
 
-    def _set_json_data(self, json_data):
+    def _set_json_data(self, json_data: dict):
         super()._set_json_data(json_data)
         self._svg_file = self.json_data.get('reaction_svg_file')
 
-    def load_image(self):
-        image_url = "{}/images/samples/{}".format(self._host_url, self._svg_file)
-        res = self._session.get(image_url, headers=get_default_session_header())
+    def load_image(self) -> str:
+        image_url = "/images/samples/{}".format(self._svg_file)
+        res = self._session.get(image_url)
         return res.text
 
     def _parse_properties(self) -> dict:
@@ -35,7 +32,7 @@ class Reaction(AbstractElement):
         for reaction_elm_names in ['starting_materials', 'reactants', 'products', 'solvents', 'purification_solvents']:
             temp = []
             for sample in self.json_data[reaction_elm_names]:
-                temp.append(Sample(self._generic_segments, self._host_url, self._session, sample))
+                temp.append(Sample(self._generic_segments, self._session, sample))
             reaction_elements[reaction_elm_names] = MaterialList(temp)
 
         try:

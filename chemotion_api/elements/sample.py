@@ -3,31 +3,27 @@ import re
 import copy
 import uuid
 
-import requests
-
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.empty_elements import init_container
-from chemotion_api.utils import get_default_session_header, get_json_session_header
 from collections.abc import MutableMapping
+from chemotion_api.connection import Connection
 
 
 class MoleculeManager:
-    def __init__(self, host_url: str, session: requests.Session):
+    def __init__(self, session: Connection):
         self._session = session
-        self._host_url = host_url
 
     def load_molecule(self, host_url, session, inchikey):
         raise NotImplementedError
 
     def create_molecule_by_smiles(self, smiles_code: str):
-        smiles_url = "{}/api/v1/molecules/smiles".format(self._host_url)
+        smiles_url = "/api/v1/molecules/smiles"
         payload = {
             "editor": "ketcher",
             "smiles": smiles_code
         }
         res = self._session.post(smiles_url,
-                                 data=json.dumps(payload),
-                                 headers=get_json_session_header())
+                                 data=json.dumps(payload))
         if res.status_code != 201:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
 
@@ -72,8 +68,8 @@ class Sample(AbstractElement):
 
 
     def load_image(self):
-        image_url = "{}/images/samples/{}".format(self._host_url, self._svg_file)
-        res = self._session.get(image_url, headers=get_default_session_header())
+        image_url = "/images/samples/{}".format(self._svg_file)
+        res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
         return res.text
@@ -95,7 +91,7 @@ class Sample(AbstractElement):
         split_sample['split_label'] = split_sample['short_label']
 
         split_sample['container'] = init_container()
-        return Sample(generic_segments=self._generic_segments, host_url=self._host_url, session=self._session, json_data=split_sample)
+        return Sample(generic_segments=self._generic_segments, session=self._session, json_data=split_sample)
 
     def copy(self):
         raise NotImplementedError

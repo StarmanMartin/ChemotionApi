@@ -1,5 +1,3 @@
-import json
-
 from chemotion_api.elements.abstract_element import AbstractElement
 from chemotion_api.elements.generic_element import GenericElement
 from chemotion_api.elements.sample import Sample
@@ -7,15 +5,13 @@ from chemotion_api.elements.reaction import Reaction
 from chemotion_api.elements.wellplate import Wellplate
 from chemotion_api.elements.research_plan import ResearchPlan
 from chemotion_api.generic_segments import GenericSegments
-from chemotion_api.utils import get_default_session_header
-import requests
+from chemotion_api.connection import Connection
 from requests.exceptions import RequestException
 
 class ElementSet(list):
-    def __init__(self, host_url: str, session: requests.Session, element_type: dict,
+    def __init__(self, session: Connection, element_type: dict,
                  collection_id: int = None, collection_is_sync: bool = False):
         super().__init__()
-        self._host_url = host_url
         self._session = session
         self._element_type = element_type
         self._collection_id = collection_id
@@ -58,7 +54,7 @@ class ElementSet(list):
         if self._collection_id is None:
             raise ValueError('load_elements only works if collection_id is set!')
 
-        segments = GenericSegments(self._host_url, self._session)
+        segments = GenericSegments(self._session)
         payload = {'page': self.page,
                    'per_page': self._per_page,
                    'filter_created_at': False,
@@ -69,7 +65,6 @@ class ElementSet(list):
         else:
             payload['collection_id'] = self._collection_id
         res = self._session.get(self._get_url() + '.json',
-                                headers=get_default_session_header(),
                                 data=payload)
         if res.status_code != 200:
             raise RequestException('{} -> {}'.format(res.status_code, res.text))
@@ -81,18 +76,18 @@ class ElementSet(list):
         self.clear()
         elements = res.json().get(self._get_result_key() + 's', [])
         for json_data in elements:
-            self.append(self._get_element_class()(segments, self._host_url, self._session, json_data=json_data))
+            self.append(self._get_element_class()(segments, self._session, json_data=json_data))
 
     def load_element(self, id: int) -> AbstractElement:
-        segments = GenericSegments(self._host_url, self._session)
-        s = self._get_element_class()(segments, self._host_url, self._session, id=id,
+        segments = GenericSegments(self._session)
+        s = self._get_element_class()(segments, self._session, id=id,
                                       element_type=self._element_type['name'])
         self.append(s)
         return s
 
     def new_element(self, json_data: dict) -> AbstractElement:
-        segments = GenericSegments(self._host_url, self._session)
-        s = self._get_element_class()(segments, self._host_url, self._session, json_data=json_data)
+        segments = GenericSegments(self._session)
+        s = self._get_element_class()(segments, self._session, json_data=json_data)
         self.append(s)
         return s
 
@@ -116,4 +111,4 @@ class ElementSet(list):
         return AbstractElement.get_response_key(self._element_type['name'])
 
     def _get_url(self):
-        return AbstractElement.get_url(self._element_type['name'], self._host_url)
+        return AbstractElement.get_url(self._element_type['name'])

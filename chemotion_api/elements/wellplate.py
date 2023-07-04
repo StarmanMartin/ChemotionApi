@@ -1,12 +1,10 @@
 from chemotion_api.elements.abstract_element import AbstractElement
-from chemotion_api.generic_segments import GenericSegments
+
 from chemotion_api.elements.sample import Sample
 from collections.abc import MutableMapping
 import string
 
 class WellplateCol(MutableMapping):
-    """A dictionary that applies an keies A-H only
-       function before accessing the keys"""
 
     def __init__(self, *args, **kwargs):
         self._keys = [letter for letter in string.ascii_uppercase[0:8]]
@@ -43,7 +41,7 @@ class Wellplate(AbstractElement):
             if element.get('sample') is not None:
                 x = int(element['position']['x']) - 1
                 y = chr(int(element['position']['y']) + ord('A') - 1)
-                self.wells[x][y] = Sample(self._generic_segments, self._host_url, self._session, element['sample'])
+                self.wells[x][y] = Sample(self._generic_segments, self._session, element['sample'])
 
     def _parse_properties(self) -> dict:
 

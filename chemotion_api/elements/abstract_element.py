@@ -3,16 +3,16 @@ import os.path
 import re
 import uuid
 
-import requests
+from chemotion_api.connection import Connection
 
 from chemotion_api.generic_segments import GenericSegments
-from chemotion_api.utils import add_to_dict, get_json_session_header, parse_generic_object_json, \
-    clean_generic_object_json, get_default_session_header
+from chemotion_api.utils import add_to_dict, parse_generic_object_json, \
+    clean_generic_object_json
 
 from requests.exceptions import RequestException
 
 class Dataset(dict):
-    def __init__(self, host_url: str, session: requests.Session, json_data: dict):
+    def __init__(self, session: Connection, json_data: dict):
         self.id = json_data.get('id')
         self.name = json_data.get('name')
         self.description = json_data.get('description')
@@ -21,13 +21,12 @@ class Dataset(dict):
             res = parse_generic_object_json(ds_json)
             super().__init__(res.get('values'))
             self._mapping = res.get('obj_mapping')
-        self._host_url = host_url
         self._session = session
         self._json_data = json_data
 
     def write_zip(self, destination=''):
-        image_url = "{}/api/v1/attachments/zip/{}".format(self._host_url, self.id)
-        res = self._session.get(image_url, headers=get_default_session_header())
+        image_url = "/api/v1/attachments/zip/{}".format(self.id)
+        res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
 
@@ -41,8 +40,8 @@ class Dataset(dict):
         return destination
 
     def write_data_set_xlsx(self, destination=''):
-        image_url = "{}/api/v1/attx/dataset/{}".format(self._host_url, self.id)
-        res = self._session.get(image_url, headers=get_default_session_header())
+        image_url = "/api/v1/attx/dataset/{}".format(self.id)
+        res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
 
@@ -62,9 +61,8 @@ class Dataset(dict):
             ds['changed'] = True
 
 class Analyses(dict):
-    def __init__(self, data, host_url: str, session: requests.Session):
+    def __init__(self, data, session: Connection):
         super().__init__()
-        self._host_url = host_url
         self._session = session
         self.id = data.get('id')
         self.type = data.get('extended_metadata', {}).get('kind', '')
@@ -74,7 +72,7 @@ class Analyses(dict):
         self['description'] = data['description']
         self.datasets = []
         for jd in self._data.get('children'):
-            self.datasets.append(Dataset(host_url, session, jd))
+            self.datasets.append(Dataset(session, jd))
 
     def preview_image(self):
         if self._data.get('preview_img') is None or self._data.get('preview_img').get('id') is None:
@@ -82,8 +80,8 @@ class Analyses(dict):
         return self._load_image(self._data.get('preview_img').get('id'))
 
     def _load_image(self, file_id: int):
-        image_url = "{}/api/v1/attachments/{}".format(self._host_url, file_id)
-        res = self._session.get(image_url, headers=get_default_session_header())
+        image_url = "/api/v1/attachments/{}".format(file_id)
+        res = self._session.get(image_url)
         if res.status_code != 200:
             raise ConnectionRefusedError('{} -> {}'.format(res.status_code, res.text))
 
@@ -118,9 +116,8 @@ class Segment(dict):
 
 class AbstractElement:
     element_type = None
-    def __init__(self, generic_segments: GenericSegments, host_url: str, session: requests.Session, json_data: dict = None, id: int = None, element_type: str = None):
+    def __init__(self, generic_segments: GenericSegments, session: Connection, json_data: dict = None, id: int = None, element_type: str = None):
         self._generic_segments = generic_segments
-        self._host_url = host_url
         self._session = session
         if json_data is not None:
             self._set_json_data(json_data)
@@ -133,8 +130,7 @@ class AbstractElement:
     def load(self):
 
         payload = {}
-        res = self._session.get("{}/{}.json".format(self.__class__.get_url(self.element_type, self._host_url), self.id),
-                                headers=get_default_session_header(),
+        res = self._session.get("{}/{}.json".format(self.__class__.get_url(self.element_type), self.id),
                                 data=payload)
         if res.status_code != 200:
             raise RequestException("{} -> {}".format(res.status_code, res.text))
@@ -171,10 +167,10 @@ class AbstractElement:
         is_created = False
         if self.id is None:
             data['id'] = uuid.uuid4().__str__()
-            res = self._session.post(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
+            res = self._session.post(self.save_url(), data=json.dumps(data))
             is_created = True
         else:
-            res = self._session.put(url=self.save_url(), data=json.dumps(data), headers=get_json_session_header())
+            res = self._session.put(self.save_url(), data=json.dumps(data))
         if res.status_code != 200 and res.status_code != 201:
             raise RequestException('{} -> '.format(res.status_code, res.text))
         if is_created:
@@ -188,8 +184,8 @@ class AbstractElement:
 
     def save_url(self):
         if self.id is not None:
-            return "{}/api/v1/{}s/{}".format(self._host_url, self.json_data.get('type'), self.id)
-        return "{}/api/v1/{}s".format(self._host_url, self.json_data.get('type'))
+            return "/api/v1/{}s/{}".format(self.json_data.get('type'), self.id)
+        return "/api/v1/{}s".format(self.json_data.get('type'))
 
     def _parse_properties(self) -> dict:
         raise NotImplemented
@@ -202,7 +198,7 @@ class AbstractElement:
         container = self.json_data.get('container')
         if container is not None:
             for analyses in container.get('children', [{}])[0].get('children', []):
-                analyses_list.append(Analyses(analyses, self._host_url, self._session))
+                analyses_list.append(Analyses(analyses, self._session))
         return analyses_list
 
     def _clean_analyses_data(self):
@@ -252,13 +248,13 @@ class AbstractElement:
         return 'element'
 
     @classmethod
-    def get_url(cls, name, host_url):
+    def get_url(cls, name):
         if name == 'sample':
-            return '%s/api/v1/samples' % host_url
+            return '/api/v1/samples'
         elif name == 'reaction':
-            return '%s/api/v1/reactions' % host_url
+            return '/api/v1/reactions'
         elif name == 'wellplate':
-            return '%s/api/v1/wellplates' % host_url
+            return '/api/v1/wellplates'
         elif name == 'research_plan':
-            return '%s/api/v1/research_plans' % host_url
-        return f'{host_url}/api/v1/generic_elements'
+            return '/api/v1/research_plans'
+        return f'/api/v1/generic_elements'

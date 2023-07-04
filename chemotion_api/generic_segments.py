@@ -1,17 +1,16 @@
-from chemotion_api.utils import get_default_session_header
 import uuid
+from chemotion_api.connection import Connection
 
 class GenericSegments:
-    def __init__(self,host_url, session):
-        self._host_url = host_url
+    def __init__(self, session: Connection):
         self._session = session
         self._segments = None
 
     @property
     def all_classes(self):
         if self._segments is None:
-            get_url = "{}/api/v1/segments/klasses.json".format(self._host_url)
-            res = self._session.get(get_url, headers=get_default_session_header())
+            get_url = "/api/v1/segments/klasses.json"
+            res = self._session.get(get_url)
             if res.status_code != 200:
                 raise ConnectionError('{} -> {}'.format(res.status_code, res.text))
             self._segments = res.json().get('klass', [])

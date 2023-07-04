@@ -1,10 +1,8 @@
 import json
 import uuid
 
-import requests
-
+from chemotion_api.connection import Connection
 from chemotion_api.elements.sample import MoleculeManager
-from chemotion_api.utils import get_default_session_header
 import os.path
 from chemotion_api.user import User
 
@@ -14,9 +12,8 @@ from requests.exceptions import RequestException
 
 class ElementManager:
 
-    def __init__(self, host_url: str, session: requests.Session):
+    def __init__(self, session: Connection):
         self._session = session
-        self._host_url = host_url
         self._all_classes = None
         self.is_loaded = False
 
@@ -28,8 +25,8 @@ class ElementManager:
         return self._all_classes
 
     def get_all_classes(self):
-        get_url = "{}/api/v1/generic_elements/klasses.json".format(self._host_url)
-        res = self._session.get(get_url, headers=get_default_session_header())
+        get_url = "/api/v1/generic_elements/klasses.json"
+        res = self._session.get(get_url)
         if res.status_code != 200:
             raise RequestException('Counld not get the genetic elements')
         all_classes = {}
@@ -42,7 +39,7 @@ class ElementManager:
 
 
     def _get_user(self):
-        u = User(self._host_url, self._session)
+        u = User(self._session)
         u.load()
         return u
 
@@ -92,7 +89,7 @@ class ElementManager:
             raise KeyError('Solver: "{}" is not available. Run instance.get_solvent_list() to see all valid solver names'.format(name))
         sample_data = self.build_new('sample', collection_id)
 
-        mol = MoleculeManager(self._host_url, self._session).create_molecule_by_smiles(solvent_info['smiles'])
+        mol = MoleculeManager(self._session).create_molecule_by_smiles(solvent_info['smiles'])
 
         sample_data['molecule'] = mol
         sample_data['density'] = solvent_info['density']

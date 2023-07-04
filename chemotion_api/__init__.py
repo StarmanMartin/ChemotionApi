@@ -1,23 +1,27 @@
 import typing
 
-import requests
 from typing import TypeVar
 
 from chemotion_api.collection import RootCollection
 from chemotion_api.element_manager import ElementManager
 from chemotion_api.user import User
-from chemotion_api.utils import get_default_session_header
 from requests.exceptions import ConnectionError
 
-from chemotion_api.elements import AbstractElement, ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan
+from chemotion_api.elements import ElementSet, Wellplate, Sample, Reaction, GenericElement, ResearchPlan
 from chemotion_api.elements.sample import MoleculeManager
+from chemotion_api.connection import Connection
 
 TInstance = TypeVar("TInstance", bound="Instance")
 
 
 class Instance:
     """ The instance object is the core object of the Chemotion API. In order for the API to work,
-    a connection to a Chmotion (server-)instance must first be established.
+    a connection to a Chmotion (server-)iEBUG http://193.196.38.77:80 "GET /api/v1/collections/roots.json HTTP/1.1" 401 28
+FAILED                                                                   [ 16%]
+test_collection.py:63 (test_get_create_collection)
+logged_in_instance = <chemotion_api.Instance object at 0x7f3cc1a05e40>
+
+    def test_get_creanstance must first be established.
     an Instance object manges such a connection. To initializes an instance it needs
      the host URL of the chemotion server as a string.
 
@@ -37,10 +41,13 @@ class Instance:
     """
 
     def __init__(self, host_url: str):
-        self.host_url = host_url.removesuffix('/')
-        self._session = requests.Session()
+        self._con = Connection(host_url)
         self._root_col = None
-        self.element_manager = ElementManager(host_url, self._session)
+        self.element_manager = ElementManager(self._con)
+
+    @property
+    def host_url(self):
+        return self._con.host_url
 
     def test_connection(self) -> TInstance:
         """
@@ -48,12 +55,11 @@ class Instance:
         The instance does not need to be logged in to use this methode.
 
         :return: the instance self
-        :type Instance
 
         :raises ConnectionError (requests.exceptions.ConnectionError) if the connection cannot be established.
         """
-        ping_url = "{}/api/v1/public/ping".format(self.host_url)
-        res = requests.get(url=ping_url)
+        ping_url = "/api/v1/public/ping"
+        res = self._con.get(url_path=ping_url)
         if res.status_code != 204:
             raise ConnectionError('Could not ping the Chemotion instance: {}'.format(self.host_url))
         return self
@@ -71,13 +77,12 @@ class Instance:
         :raise ConnectionError (requests.exceptions.ConnectionError) if the logging was not successful.
         """
 
-        headers = get_default_session_header()
         payload = {'user[login]': user, 'user[password]': password}
-        login_url = "{}/users/sign_in".format(self.host_url)
+        login_url = "/users/sign_in"
 
-        res = self._session.post(login_url,
-                                 headers=headers,
-                                 data=payload)
+        res = self._con.post(url_path=login_url,
+                             headers=Connection.get_default_session_header(),
+                             data=payload)
 
         if res.status_code == 200 and not res.url.endswith('sign_in'):
             return self
@@ -93,13 +98,13 @@ class Instance:
 
         :raise PermissionError: if the userdata cannot be fetched. Make sure that you are logged in.
         """
-        u = User(self.host_url, self._session)
+        u = User(self._con)
         u.load()
         return u
 
     def get_root_collection(self, reload=True) -> RootCollection:
         if reload or self._root_col is None:
-            self._root_col = RootCollection(self.host_url, self._session)
+            self._root_col = RootCollection(self._con)
             self._root_col.set_element_manager(self.element_manager)
             self._root_col.load_collection()
             self._root_col.load_sync_collection()
@@ -129,7 +134,7 @@ class Instance:
 
          :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('reaction'))
+        e = ElementSet(self._con, self.all_element_classes.get('reaction'))
         return typing.cast(Reaction, e.load_element(id))
 
     def get_wellplate(self, id: int) -> Wellplate:
@@ -144,7 +149,7 @@ class Instance:
 
          :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('wellplate'))
+        e = ElementSet(self._con, self.all_element_classes.get('wellplate'))
         return typing.cast(Wellplate, e.load_element(id))
 
     def get_research_plan(self, id: int) -> ResearchPlan:
@@ -159,7 +164,7 @@ class Instance:
 
          :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('research_plan'))
+        e = ElementSet(self._con, self.all_element_classes.get('research_plan'))
         return typing.cast(ResearchPlan, e.load_element(id))
 
     def get_sample(self, id: int) -> Sample:
@@ -174,7 +179,7 @@ class Instance:
 
          :raises RequestException: (requests.exceptions.RequestException) if the information cannot be fetched. Make sure that your connection is active and you are logged in.
         """
-        e = ElementSet(self.host_url, self._session, self.all_element_classes.get('sample'))
+        e = ElementSet(self._con, self.all_element_classes.get('sample'))
         return typing.cast(Sample, e.load_element(id))
 
     def get_generic_by_name(self, name: str, id: int) -> GenericElement:
@@ -193,7 +198,7 @@ class Instance:
         elem = self.all_element_classes.get(name)
         if elem is None:
             raise ValueError(f'Could not find a generic element under the name: "{name}"')
-        e = ElementSet(self.host_url, self._session, elem)
+        e = ElementSet(self._con, elem)
         return typing.cast(GenericElement, e.load_element(id))
 
     def get_generic_by_label(self, label, id) -> GenericElement:
@@ -203,7 +208,7 @@ class Instance:
         raise ValueError(f'Could not find a generic element with the label: "{label}"')
 
     def molecule(self):
-        return MoleculeManager(self.host_url, self._session)
+        return MoleculeManager(self._con)
 
     def get_solvent_list(self):
         return list(ElementManager.get_solvent_list().keys())

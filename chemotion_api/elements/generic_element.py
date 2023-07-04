@@ -1,17 +1,16 @@
 from chemotion_api.elements.abstract_element import AbstractElement
-from chemotion_api.generic_segments import GenericSegments
-from chemotion_api.utils import get_default_session_header, parse_generic_object_json, clean_generic_object_json
+from chemotion_api.utils import parse_generic_object_json, clean_generic_object_json
 
 
 class GenericElement(AbstractElement):
 
-    def _set_json_data(self, json_data):
+    def _set_json_data(self, json_data: dict):
         super()._set_json_data(json_data)
 
-    def save_url(self):
+    def save_url(self) -> str:
         if self.id is not None:
-            return "{}/api/v1/generic_elements/{}".format(self._host_url, self.id)
-        return "{}/api/v1/generic_elements".format(self._host_url)
+            return "/api/v1/generic_elements/{}".format(self.id)
+        return "/api/v1/generic_elements"
 
     def _parse_properties(self) -> dict:
        data = parse_generic_object_json(self.json_data)
