@@ -9,7 +9,18 @@ class Connection(requests.Session):
         super().__init__()
         self._host_url = host_url.strip('/')
         self._verify = verify_ssl
+        self._bearer_token = None
 
+
+    def reset_bearer_token(self):
+        self._bearer_token = None
+
+    def set_bearer_token(self, token: str):
+        self._bearer_token = token
+
+    @property
+    def bearer_token(self):
+        return self._bearer_token
 
     @property
     def host_url(self):
@@ -34,12 +45,15 @@ class Connection(requests.Session):
         if 'data' in kwargs and not isinstance(kwargs['data'], str) and kwargs['headers'].get('Content-Type') == 'application/json':
             kwargs['data'] = json.dumps(kwargs.get('data', {}))
         return getattr(super(), method)(**kwargs)
-    @classmethod
-    def get_default_session_header(cls) -> dict[str, str]:
-        return {'User-Agent': 'Mozilla/5.0'}
 
-    @classmethod
-    def get_json_session_header(cls) -> dict[str, str]:
-        header = cls.get_default_session_header()
+    def get_default_session_header(self) -> dict[str, str]:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        if self._bearer_token is not None:
+            headers["Authorization"] = f"Bearer {self._bearer_token}"
+        return headers
+
+
+    def get_json_session_header(self) -> dict[str, str]:
+        header = self.get_default_session_header()
         header['Content-Type'] = 'application/json'
         return header
